@@ -1,0 +1,14 @@
+- Original total actions: 2
+  · kept(used): 0
+  · unused:     2
+  · wildcards:  0
+
+Original actions:
+  - s3:GetObject
+  - s3:PutObject
+
+Kept (used) actions:
+  (none)
+
+Wildcard actions (removed):
+  (none)

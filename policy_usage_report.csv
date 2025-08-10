@@ -1,9 +1,0 @@
-Policy File,Action,Status
-AWSGlueServiceRole-cloudtrail-EZCRC-s3Policy.json,s3:PutObject,Used
-AWSGlueServiceRole-cloudtrail-EZCRC-s3Policy.json,s3:GetObject,Unused
-AWSLambdaBasicExecutionRole-030a1ec6-6b09-4dfc-90db-b6f95ace73e3.json,logs:CreateLogStream,Unused
-AWSLambdaBasicExecutionRole-030a1ec6-6b09-4dfc-90db-b6f95ace73e3.json,logs:CreateLogGroup,Unused
-AWSLambdaBasicExecutionRole-030a1ec6-6b09-4dfc-90db-b6f95ace73e3.json,logs:PutLogEvents,Unused
-AWSLambdaBasicExecutionRole-75adaf67-a911-49f3-8b26-660a5064ac8a.json,logs:CreateLogStream,Unused
-AWSLambdaBasicExecutionRole-75adaf67-a911-49f3-8b26-660a5064ac8a.json,logs:CreateLogGroup,Unused
-AWSLambdaBasicExecutionRole-75adaf67-a911-49f3-8b26-660a5064ac8a.json,logs:PutLogEvents,Used

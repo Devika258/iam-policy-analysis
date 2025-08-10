@@ -1,0 +1,4 @@
+Policy,Original Actions,Kept (Used),Unused (Removed),Wildcards Flagged,% Reduction vs Original
+AWSGlueServiceRole-cloudtrail-EZCRC-s3Policy.json,2,0,2,0,100.0%
+AWSLambdaBasicExecutionRole-030a1ec6-6b09-4dfc-90db-b6f95ace73e3.json,3,0,3,0,100.0%
+AWSLambdaBasicExecutionRole-75adaf67-a911-49f3-8b26-660a5064ac8a.json,3,0,3,0,100.0%

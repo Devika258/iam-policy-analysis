@@ -1,0 +1,17 @@
+Policy File,Action,Status
+TestPolicy_Mixed.json,ec2:*,Wildcard
+TestPolicy_Mixed.json,ec2:StartInstances,Unused
+TestPolicy_Mixed.json,ec2:StopInstances,Unused
+TestPolicy_Mixed.json,iam:CreateUser,Unused
+TestPolicy_Mixed.json,iam:ListUsers,Unused
+TestPolicy_Mixed.json,s3:GetObject,Unused
+TestPolicy_Mixed.json,s3:ListBucket,Unused
+TestPolicy_Mixed.json,s3:PutObject,Unused
+AWSGlueServiceRole-cloudtrail-EZCRC-s3Policy.json,s3:GetObject,Unused
+AWSGlueServiceRole-cloudtrail-EZCRC-s3Policy.json,s3:PutObject,Unused
+AWSLambdaBasicExecutionRole-030a1ec6-6b09-4dfc-90db-b6f95ace73e3.json,logs:CreateLogGroup,Unused
+AWSLambdaBasicExecutionRole-030a1ec6-6b09-4dfc-90db-b6f95ace73e3.json,logs:CreateLogStream,Unused
+AWSLambdaBasicExecutionRole-030a1ec6-6b09-4dfc-90db-b6f95ace73e3.json,logs:PutLogEvents,Unused
+AWSLambdaBasicExecutionRole-75adaf67-a911-49f3-8b26-660a5064ac8a.json,logs:CreateLogGroup,Unused
+AWSLambdaBasicExecutionRole-75adaf67-a911-49f3-8b26-660a5064ac8a.json,logs:CreateLogStream,Unused
+AWSLambdaBasicExecutionRole-75adaf67-a911-49f3-8b26-660a5064ac8a.json,logs:PutLogEvents,Unused

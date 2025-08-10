@@ -1,0 +1,15 @@
+- Original total actions: 3
+  · kept(used): 0
+  · unused:     3
+  · wildcards:  0
+
+Original actions:
+  - logs:CreateLogGroup
+  - logs:CreateLogStream
+  - logs:PutLogEvents
+
+Kept (used) actions:
+  (none)
+
+Wildcard actions (removed):
+  (none)

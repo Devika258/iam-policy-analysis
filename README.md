@@ -6,12 +6,13 @@ This project provides a Python-based solution for analyzing AWS IAM policies and
 
 ## 📌 Project Features
 
-- Parses and reformats AWS CloudTrail logs into NDJSON format.
-- Extracts actual IAM usage data via Athena.
-- Compares current IAM policies with actual usage.
-- Flags unused, wildcard, or over-permissive actions.
-- Generates refined IAM policies in JSON.
-- Produces summary CSV reports.
+- Compares IAM policies with actual CloudTrail usage logs.
+- Identifies used, unused, and wildcard (*) actions.
+- Generates least-privilege refined IAM policies in JSON form
+- Removes unused and over-permissive permissions.
+- Produces detailed CSV reports with reduction metrics.
+- Supports MIT dataset, custom dataset, and combined dataset analysis.
+- Automates all steps using run_all.py.
 - Visualizes IAM usage with Amazon QuickSight.
 
 ---
@@ -24,33 +25,46 @@ This project provides a Python-based solution for analyzing AWS IAM policies and
 
 ---
 
-## 📊 Example Output
+## 📁 Project Structure
 
-- ✅ Used permissions  
-- ❌ Unused permissions  
-- ⚠️ Wildcard actions (e.g., `s3:*`, `iam:*`)  
-- 📉 Reduction summary: `policy_summary.csv`  
-- 📊 Visual dashboard: QuickSight charts  
+iam-policy-analysis/
+│
+├── data/                         # CloudTrail event CSV files
+│   ├── athena_event_counts.csv    # MIT dataset
+│   ├── athena_events_custom.csv   # Custom dataset
+│   ├── combined_events.csv        # Combined dataset
+│   └── policy_usage_report.csv    # Generated usage reports
+│
+├── iam_policies/                  # Original IAM policies
+│   ├── inline/                    # Inline IAM policies
+│
+├── refined_policies/              # Refined least-privilege policies
+│   ├── mit/
+│   ├── custom/
+│   └── combined/
+│
+├── script/
+│   ├── compare_policy_usage.py    # Compares policy with usage
+│   ├── least_privilege_tool.py    # Generates refined policies
+│   ├── combine_data.py            # Merges datasets
+│   ├── fetch_iam_policies.py      # Fetches IAM managed policies
+│   ├── fetch_inline_policies.py   # Fetches IAM inline policies
+│   └── run_all.py                 # Automates full process
+│
+└── requirements.txt               # Python dependencies
 
 ---
 
-## 📁 Project Structure
+## 📊 Output Files
 
-├── iam_policies/                # Original IAM policies
-├── refined_policies/            # Optimized policies after analysis
-├── policy_usage_report.csv      # IAM action usage report
-├── policy_summary.csv           # Policy reduction summary
-├── fetch_iam_policies.py        # Script to fetch managed IAM policies
-├── fetch_inline_policies.py     # Script to fetch inline policies
-├── compare_policy_usage.py      # Policy usage comparison tool
-├── least_privilege_tool.py      # Refines IAM policies based on usage
-└── generate_refined_policies.py # (Optional) Wrapper script
+- **Refined Policies**: Saved in refined_policies/<dataset>/ as JSON.
+- **Summary Report**: policy_summary.csv showing action counts, wildcards, and % reduction.
+- **Diff Files**: .diff files comparing original vs refined policies.
 
 ---
 
 ## 📄 License
-
-
+This project is licensed under the MIT License.
 You can now:
 
 1. Copy this into your `README.md` file.
@@ -67,25 +81,92 @@ git push
 
 ## ✅ Getting Started
 
-### Clone the repo:
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/Devika258/iam-policy-analysis.git
 cd iam-policy-analysis
 ---
 
-### Create a virtual environment:
+### 2. Create Virtual Environment
 ```bash
 python -m venv .venv
-.venv\Scripts\activate  # On Windows
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # macOS/Linux
 ---
 
-### Install requirements:
+### 3. Install Requirements
 ```bash
 pip install -r requirements.txt
 ---
 
-### Run the analysis:
+### 4. Run the analysis:
 ```bash
 python least_privilege_tool.py
 
+--------
 
+## 📄 License
+This project is licensed under the MIT License.
+You can now:
+
+1. Copy this into your `README.md` file.
+2. Save it.
+3. Commit and push:
+
+```bash
+git add README.md
+git commit -m "Update README with full project details"
+git push
+
+---
+
+## ✅  Running the Tool
+
+### Run Full Automation for All Datasets
+```bash
+python script/run_all.py
+---
+
+### Run for Specific Dataset
+
+### MIT Dataset:
+```bash
+python script/compare_policy_usage.py \
+  --counts data/athena_event_counts.csv \
+  --policies iam_policies \
+  --inline iam_policies/inline \
+  --output data/policy_usage_report_mit.csv
+
+python script/least_privilege_tool.py \
+  --usage data/policy_usage_report_mit.csv \
+  --policies iam_policies/inline \
+  --output refined_policies/mit
+---
+
+### Custom Dataset:
+```bash
+python script/compare_policy_usage.py \
+  --counts data/athena_events_custom.csv \
+  --policies iam_policies \
+  --inline iam_policies/inline \
+  --output data/policy_usage_report_custom.csv
+
+python script/least_privilege_tool.py \
+  --usage data/policy_usage_report_custom.csv \
+  --policies iam_policies/inline \
+  --output refined_policies/custom
+---
+
+### Combined Dataset:
+```bash
+python script/compare_policy_usage.py \
+  --counts data/combined_events.csv \
+  --policies iam_policies \
+  --inline iam_policies/inline \
+  --output data/policy_usage_report.csv
+
+python script/least_privilege_tool.py \
+  --usage data/policy_usage_report.csv \
+  --policies iam_policies/inline \
+  --output refined_policies/combined
+---

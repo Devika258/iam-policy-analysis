@@ -1,0 +1,20 @@
+- Original total actions: 8
+  · kept(used): 0
+  · unused:     7
+  · wildcards:  1
+
+Original actions:
+  - s3:PutObject
+  - s3:GetObject
+  - s3:ListBucket
+  - ec2:StartInstances
+  - ec2:StopInstances
+  - ec2:*
+  - iam:CreateUser
+  - iam:ListUsers
+
+Kept (used) actions:
+  (none)
+
+Wildcard actions (removed):
+  ! ec2:*
