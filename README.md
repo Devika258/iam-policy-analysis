@@ -1,10 +1,10 @@
-# IAM Policy Analysis Tool 🔐
+# IAM Policy Analysis Tool
 
 This project provides a Python-based solution for analyzing AWS IAM policies and CloudTrail logs to generate **least privilege policy recommendations**.
 
 ---
 
-## 📌 Project Features
+## Project Features
 
 - Compares IAM policies with actual CloudTrail usage logs.
 - Identifies used, unused, and wildcard (*) actions.
@@ -17,7 +17,7 @@ This project provides a Python-based solution for analyzing AWS IAM policies and
 
 ---
 
-## 🛠️ Tools & Technologies
+## Tools & Technologies
 
 - **AWS Services**: IAM, S3, CloudTrail, Lambda, Glue, Athena, QuickSight  
 - **Languages/Libs**: Python (Boto3, JSON, Pandas)  
@@ -25,7 +25,8 @@ This project provides a Python-based solution for analyzing AWS IAM policies and
 
 ---
 
-## 📁 Project Structure
+## Project Structure
+```bash
 
 iam-policy-analysis/
 │
@@ -52,7 +53,7 @@ iam-policy-analysis/
 │   └── run_all.py                 # Automates full process
 │
 └── requirements.txt               # Python dependencies
-
+```
 ---
 
 ## 📊 Output Files
@@ -75,9 +76,8 @@ You can now:
 git add README.md
 git commit -m "Update README with full project details"
 git push
-
+```
 ---
-
 
 ## ✅ Getting Started
 
@@ -85,6 +85,7 @@ git push
 ```bash
 git clone https://github.com/Devika258/iam-policy-analysis.git
 cd iam-policy-analysis
+```
 ---
 
 ### 2. Create Virtual Environment
@@ -92,42 +93,30 @@ cd iam-policy-analysis
 python -m venv .venv
 .venv\Scripts\activate  # Windows
 source .venv/bin/activate  # macOS/Linux
+```
 ---
 
 ### 3. Install Requirements
 ```bash
 pip install -r requirements.txt
+```
 ---
 
 ### 4. Run the analysis:
 ```bash
 python least_privilege_tool.py
-
+```
 --------
 
-## 📄 License
-This project is licensed under the MIT License.
-You can now:
-
-1. Copy this into your `README.md` file.
-2. Save it.
-3. Commit and push:
-
-```bash
-git add README.md
-git commit -m "Update README with full project details"
-git push
-
----
-
-## ✅  Running the Tool
+## A. Running the Tool
 
 ### Run Full Automation for All Datasets
 ```bash
 python script/run_all.py
+```
 ---
 
-### Run for Specific Dataset
+### B. Run for Specific Dataset
 
 ### MIT Dataset:
 ```bash
@@ -141,6 +130,7 @@ python script/least_privilege_tool.py \
   --usage data/policy_usage_report_mit.csv \
   --policies iam_policies/inline \
   --output refined_policies/mit
+```
 ---
 
 ### Custom Dataset:
@@ -155,6 +145,7 @@ python script/least_privilege_tool.py \
   --usage data/policy_usage_report_custom.csv \
   --policies iam_policies/inline \
   --output refined_policies/custom
+```
 ---
 
 ### Combined Dataset:
@@ -169,4 +160,5 @@ python script/least_privilege_tool.py \
   --usage data/policy_usage_report.csv \
   --policies iam_policies/inline \
   --output refined_policies/combined
+```
 ---
