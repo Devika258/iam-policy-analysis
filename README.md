@@ -56,7 +56,7 @@ iam-policy-analysis/
 ```
 ---
 
-## 📊 Output Files
+## Output Files
 
 - **Refined Policies**: Saved in refined_policies/<dataset>/ as JSON.
 - **Summary Report**: policy_summary.csv showing action counts, wildcards, and % reduction.
@@ -64,22 +64,7 @@ iam-policy-analysis/
 
 ---
 
-## 📄 License
-This project is licensed under the MIT License.
-You can now:
-
-1. Copy this into your `README.md` file.
-2. Save it.
-3. Commit and push:
-
-```bash
-git add README.md
-git commit -m "Update README with full project details"
-git push
-```
----
-
-## ✅ Getting Started
+## Getting Started
 
 ### 1. Clone the Repository
 ```bash
@@ -161,4 +146,9 @@ python script/least_privilege_tool.py \
   --policies iam_policies/inline \
   --output refined_policies/combined
 ```
+---
+
+## License
+This project is licensed under the MIT License.
+
 ---
