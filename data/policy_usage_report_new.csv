@@ -1,0 +1,8 @@
+Policy File,Action,Status
+TestPolicy_Mixed.json,s3:PutObject,Used
+TestPolicy_Mixed.json,s3:GetObject,Used
+TestPolicy_Mixed.json,s3:ListBucket,Used
+TestPolicy_Mixed.json,ec2:StartInstances,Used
+TestPolicy_Mixed.json,ec2:StopInstances,Used
+TestPolicy_Mixed.json,iam:CreateUser,Used
+TestPolicy_Mixed.json,iam:ListUsers,Used

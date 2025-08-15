@@ -1,7 +1,9 @@
 - Original total actions: 8
-  · kept(used): 1
-  · unused:     6
+  · kept(used): 7
+  · unused:     0
   · wildcards:  1
+  · Least-Privilege %: 87.5%
+  · Least privilage recommendation: High: This policy is already highly optimized for least privilege.
 
 Original actions:
   - s3:PutObject
@@ -14,6 +16,12 @@ Original actions:
   - iam:ListUsers
 
 Kept (used) actions:
+  + s3:PutObject
+  + s3:GetObject
+  + s3:ListBucket
+  + ec2:StartInstances
+  + ec2:StopInstances
+  + iam:CreateUser
   + iam:ListUsers
 
 Wildcard actions (removed):

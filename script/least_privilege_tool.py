@@ -1,4 +1,4 @@
-import os
+import os 
 import json
 import argparse
 from typing import List, Dict, Tuple
@@ -11,6 +11,8 @@ def load_usage_report(report_path: str) -> Dict[str, List[str]]:
     """
     Returns: { 'PolicyFile.json': ['service:action', ... lowercased] }
     Only actions with Status == 'Used' are included.
+
+    Expected CSV headers: Policy File, Action, Status
     """
     df = pd.read_csv(report_path)
     usage_map: Dict[str, List[str]] = {}
@@ -44,6 +46,22 @@ def collect_original_actions(policy_json: Dict) -> List[str]:
             continue
         actions.extend(flatten_actions(stmt.get("Action")))
     return actions
+
+# --------------------------
+# Recommendation helper (exact wording requested)
+# --------------------------
+
+def lpr_recommendation(lpr_percent: float) -> str:
+    # High: 80 ≤ LPR%
+    if lpr_percent >= 80:
+        return "High: This policy is already highly optimized for least privilege."
+    # Medium: 10 ≤ LPR% < 80
+    elif 10 <= lpr_percent < 80:
+        return "Medium: This policy could be improved by removing some unused permissions."
+    # Low: LPR% < 10
+    else:
+        return "Low: This policy is over-provisioned and needs significant trimming."
+
 
 # --------------------------
 # Build refined policy & metrics
@@ -82,7 +100,7 @@ def process_policy(policy_path: str, used_actions_lower: List[str]) -> Tuple[Dic
         refined_statements.append({
             "Effect": "Allow",
             "Action": sorted(kept_actions),
-            "Resource": "*"  # keep original resource if you prefer; this is simplest
+            "Resource": "*"
         })
 
     refined = {
@@ -90,28 +108,40 @@ def process_policy(policy_path: str, used_actions_lower: List[str]) -> Tuple[Dic
         "Statement": refined_statements
     }
 
-    # Metrics
+    # ---- Metrics (including Least-Privilege %) ----
     kept_count = len(kept_actions)
     wildcard_count = len(wildcard_actions)
     unused_count = len(unused_actions)
-    reduction = 0.0
+
     if original_count > 0:
-        reduction = round((original_count - kept_count) * 100.0 / original_count, 2)
+        lpr_percent = round(kept_count * 100.0 / original_count, 2)
+        pct_reduction_num = round(100.0 - lpr_percent, 2)
+    else:
+        lpr_percent = 0.0
+        pct_reduction_num = 0.0
+
+    rec_text = lpr_recommendation(lpr_percent)
 
     metrics = {
         "Original Actions": original_count,
         "Kept (Used)": kept_count,
         "Unused (Removed)": unused_count,
         "Wildcards Flagged": wildcard_count,
-        "% Reduction vs Original": f"{reduction}%"
+        "Least-Privilege %": lpr_percent,                # numeric
+        "pct_reduction_num": f"{pct_reduction_num}%",
+        # exact label requested:
+        "Least privilage recommendation": rec_text
     }
 
-    # Diff
+    # ---- Diff (human-readable) ----
     diff_lines = [
         f"- Original total actions: {original_count}",
         f"  · kept(used): {kept_count}",
         f"  · unused:     {unused_count}",
         f"  · wildcards:  {wildcard_count}",
+        f"  · Least-Privilege %: {lpr_percent}%",
+        # exact wording/spelling as requested:
+        f"  · Least privilage recommendation: {rec_text}",
         "",
         "Original actions:",
         *([f"  - {a}" for a in original_actions] if original_actions else ["  (none)"]),
@@ -147,6 +177,10 @@ def write_summary(rows: List[Dict], out_csv: str):
 # CLI
 # --------------------------
 def main():
+    # Debug banner to confirm we are running the right script and thresholds
+    print(">> least_privilege_tool.py loaded from:", __file__)
+    print(">> Thresholds: High>=90, Medium 40–<90, Low<40")
+
     ap = argparse.ArgumentParser(description="Generate least-privilege versions of IAM policies based on usage.")
     ap.add_argument("--policies", required=True, help="Folder containing policy JSON files to refine")
     ap.add_argument("--usage", required=True, help="CSV produced by compare_policy_usage.py")
