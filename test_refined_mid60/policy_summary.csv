@@ -1,2 +1,2 @@
 Policy,Original Actions,Kept (Used),Unused (Removed),Wildcards Flagged,Least-Privilege %,pct_reduction_num,Least privilage recommendation
-TestPolicy_Mixed.json,8,7,0,1,87.5%,12.5%,High: This policy is already highly optimized for least privilege.
+TestPolicy_Mixed.json,8,5,2,1,62.5%,37.5%,Medium: This policy could be improved by removing some unused permissions.

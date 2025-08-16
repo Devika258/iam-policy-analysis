@@ -1,2 +1,2 @@
 Policy,Original Actions,Kept (Used),Unused (Removed),Wildcards Flagged,Least-Privilege %,pct_reduction_num,Least privilage recommendation
-TestPolicy_Mixed.json,8,1,6,1,12.5,87.5%,Medium: This policy could be improved by removing some unused permissions.
+TestPolicy_Mixed.json,8,1,6,1,12.5%,87.5%,Low: This policy is over-provisioned and needs significant trimming.

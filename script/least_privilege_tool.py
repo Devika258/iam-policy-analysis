@@ -55,10 +55,10 @@ def lpr_recommendation(lpr_percent: float) -> str:
     # High: 80 ≤ LPR%
     if lpr_percent >= 80:
         return "High: This policy is already highly optimized for least privilege."
-    # Medium: 10 ≤ LPR% < 80
-    elif 10 <= lpr_percent < 80:
+    # Medium: 40 ≤ LPR% < 80
+    elif 40 <= lpr_percent < 80:
         return "Medium: This policy could be improved by removing some unused permissions."
-    # Low: LPR% < 10
+    # Low: LPR% < 40
     else:
         return "Low: This policy is over-provisioned and needs significant trimming."
 
@@ -127,7 +127,7 @@ def process_policy(policy_path: str, used_actions_lower: List[str]) -> Tuple[Dic
         "Kept (Used)": kept_count,
         "Unused (Removed)": unused_count,
         "Wildcards Flagged": wildcard_count,
-        "Least-Privilege %": lpr_percent,                # numeric
+        "Least-Privilege %": f"{lpr_percent}%",                # numeric
         "pct_reduction_num": f"{pct_reduction_num}%",
         # exact label requested:
         "Least privilage recommendation": rec_text

@@ -1,2 +1,2 @@
 Policy,Original Actions,Kept (Used),Unused (Removed),Wildcards Flagged,Least-Privilege %,pct_reduction_num,Least privilage recommendation
-TestPolicy_Mixed.json,8,0,7,1,0.0,100.0%,Low: This policy is over-provisioned and needs significant trimming.
+TestPolicy_Mixed.json,8,0,7,1,0.0%,100.0%,Low: This policy is over-provisioned and needs significant trimming.

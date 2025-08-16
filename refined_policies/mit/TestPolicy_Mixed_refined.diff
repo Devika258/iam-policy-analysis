@@ -3,7 +3,7 @@
   · unused:     6
   · wildcards:  1
   · Least-Privilege %: 12.5%
-  · Least privilage recommendation: Medium: This policy could be improved by removing some unused permissions.
+  · Least privilage recommendation: Low: This policy is over-provisioned and needs significant trimming.
 
 Original actions:
   - s3:PutObject

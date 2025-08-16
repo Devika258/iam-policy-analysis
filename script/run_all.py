@@ -12,7 +12,8 @@ LEAST   = ROOT / "script" / "least_privilege_tool.py"
 # Inputs
 MIT_COUNTS      = ROOT / "data" / "athena_event_counts.csv"
 CUSTOM_COUNTS   = ROOT / "data" / "athena_events_custom.csv"
-NEW_COUNTS      = ROOT / "data" / "policy_usage_report_new.csv"
+NEW_COUNTS      = ROOT / "data" / "policy_usage_report_new.csv"   # passthrough (already a usage CSV)
+MID_REPORT      = ROOT / "data" / "policy_usage_report_mid.csv"   # NEW: 62.5% Medium test case
 
 # Policies (use managed policies folder for least-priv run)
 POLICIES_DIR = ROOT / "iam_policies"
@@ -33,6 +34,7 @@ REFINED_CUSTOM = REFINED_DIR / "custom"
 TEST_MIT      = ROOT / "test_refined_mit"
 TEST_CUSTOM   = ROOT / "test_refined_custom"
 TEST_NEW      = ROOT / "test_refined_new"
+TEST_MID60    = ROOT / "test_refined_mid60"                  # NEW: folder for the mid test case
 
 def sh(args):
     print("\n$ " + " ".join(map(str, args)))
@@ -41,11 +43,16 @@ def sh(args):
         sys.exit(cp.returncode)
 
 def ensure_files():
-    missing = [p for p in [COMPARE, LEAST, MIT_COUNTS, CUSTOM_COUNTS, NEW_COUNTS] if not p.exists()]
+    # NEW_REPORT and MID_REPORT are already usage CSVs; still check they exist
+    missing = [
+        p for p in [COMPARE, LEAST, MIT_COUNTS, CUSTOM_COUNTS, NEW_COUNTS, MID_REPORT]
+        if not p.exists()
+    ]
     if missing:
         print("❌ Missing required files:\n  " + "\n  ".join(map(str, missing)))
         sys.exit(1)
-    for d in [REFINED_DIR, REFINED_MIT, REFINED_CUSTOM, TEST_MIT, TEST_CUSTOM, TEST_NEW]:
+
+    for d in [REFINED_DIR, REFINED_MIT, REFINED_CUSTOM, TEST_MIT, TEST_CUSTOM, TEST_NEW, TEST_MID60]:
         d.mkdir(parents=True, exist_ok=True)
 
 def run_compare(counts_path: Path, out_csv: Path):
@@ -80,18 +87,24 @@ def main():
     run_least_privilege(CUSTOM_REPORT, REFINED_CUSTOM)
     run_least_privilege(CUSTOM_REPORT, TEST_CUSTOM)
 
-    print("\n================ 3) NEW =================")
-    # New dataset already in correct CSV format
+    print("\n================ 3) MID60 (test) ========")
+    # Medium (≈62.5%) test case – usage CSV already in final format
+    run_least_privilege(MID_REPORT, TEST_MID60)
+
+    print("\n================ 4) NEW =================")
+    # New dataset is already a usage CSV; just refine to test folder
     run_least_privilege(NEW_REPORT, TEST_NEW)
 
     print("\n✅ All done!")
     print(f"- MIT report:            {MIT_REPORT}")
     print(f"- Custom report:         {CUSTOM_REPORT}")
     print(f"- New report:            {NEW_REPORT}")
+    print(f"- Mid report (test):     {MID_REPORT}")
     print(f"- Refined (MIT):         {REFINED_MIT}")
     print(f"- Refined (Custom):      {REFINED_CUSTOM}")
     print(f"- Test refined (MIT):    {TEST_MIT}")
     print(f"- Test refined (Custom): {TEST_CUSTOM}")
+    print(f"- Test refined (Mid60):  {TEST_MID60}")
     print(f"- Test refined (New):    {TEST_NEW}")
 
 if __name__ == "__main__":

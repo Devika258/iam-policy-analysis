@@ -1,9 +1,9 @@
 - Original total actions: 8
-  · kept(used): 1
-  · unused:     6
+  · kept(used): 5
+  · unused:     2
   · wildcards:  1
-  · Least-Privilege %: 12.5%
-  · Least privilage recommendation: Low: This policy is over-provisioned and needs significant trimming.
+  · Least-Privilege %: 62.5%
+  · Least privilage recommendation: Medium: This policy could be improved by removing some unused permissions.
 
 Original actions:
   - s3:PutObject
@@ -16,6 +16,10 @@ Original actions:
   - iam:ListUsers
 
 Kept (used) actions:
+  + s3:PutObject
+  + s3:GetObject
+  + s3:ListBucket
+  + ec2:StartInstances
   + iam:ListUsers
 
 Wildcard actions (removed):
