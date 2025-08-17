@@ -12,7 +12,7 @@ This project provides a Python-based solution for analyzing AWS IAM policies and
 - **Detailed Reports** – Generates CSV summaries with action counts, risk scores, and % reductions.
 - **Refined Policies** – Outputs new JSON policies optimized for least privilege.
 - **Multiple Datasets** – Supports MIT dataset, custom dataset, and combined dataset.
-- **Automation** – run_all.py executes the entire pipeline in one ste
+- **Automation** – _run_all.py_ executes the entire pipeline in one ste
 - **Visualization** – Integrates with Amazon QuickSight for interactive dashboards.
 
 ---
