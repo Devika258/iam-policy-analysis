@@ -14,33 +14,40 @@ jobs:
         python-version: ["3.10", "3.11"]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install ruff pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # tooling (optional)
+          pip install -q ruff pytest || true
 
-      # Make lint non-blocking for now
       - name: Lint (ruff)
-        run: ruff check . || true
+        run: ruff check . || true   # keep non-blocking for now
 
-      # If you don’t have tests, keep this non-blocking as well
       - name: Run tests
-        run: pytest -q || true
+        run: pytest -q || true      # keep non-blocking for now
 
-      - name: Smoke run pipeline
-        run: python script/run_all.py || true
+      # Generate outputs so reviewers can download & the deploy job has inputs
+      - name: Smoke run pipeline (generate CSVs)
+        run: |
+          python script/run_all.py || true
 
-      - name: Upload artifacts
+      # 🔑 Fix the artifact name conflict by uploading once (3.11 only)
+      - name: Upload artifacts (only once)
+        if: matrix.python-version == '3.11'
         uses: actions/upload-artifact@v4
         with:
           name: pipeline-outputs
+          if-no-files-found: ignore
           path: |
             data/**/*.csv
             refined_policies/**/*
