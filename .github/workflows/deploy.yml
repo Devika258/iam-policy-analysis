@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  id-token: write   # for GitHub OIDC to AWS
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install & run pipeline
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python script/run_all.py
+
+      # ---- AWS Auth (OIDC preferred) ----
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ---- Publish artifacts to S3 ----
+      - name: Sync outputs to S3
+        run: |
+          # raw data & summaries
+          aws s3 sync data s3://${{ secrets.S3_BUCKET }}/ --delete
+          # refined policies
+          aws s3 sync refined_policies s3://${{ secrets.S3_BUCKET }}/refined_policies/ --delete
+          # (optional) test outputs you use for QS
+          aws s3 sync test_refined_mit s3://${{ secrets.S3_BUCKET }}/mit/ --delete
+          aws s3 sync test_refined_custom s3://${{ secrets.S3_BUCKET }}/custom/ --delete
+          aws s3 sync test_refined_new s3://${{ secrets.S3_BUCKET }}/new/ --delete
+          # (optional) combined summary for QS
+          if [ -f data/combined_policy_summary.csv ]; then
+            aws s3 cp data/combined_policy_summary.csv s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv
+          fi
+
+      # ---- QuickSight dataset refresh ----
+      - name: Refresh QuickSight dataset
+        env:
+          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          DATASET_ID: ${{ secrets.QS_DATASET_ID }}
+          REGION:     ${{ secrets.AWS_REGION }}
+        run: |
+          ING=run-${GITHUB_SHA::8}
+          aws quicksight create-ingestion \
+            --aws-account-id "$ACCOUNT_ID" \
+            --data-set-id "$DATASET_ID" \
+            --ingestion-id "$ING" \
+            --region "$REGION"
+          echo "Triggered QuickSight ingestion: $ING"
