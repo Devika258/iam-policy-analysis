@@ -1,19 +1,22 @@
 name: deploy
 
 on:
-  workflow_dispatch:        # allow manual runs
-  push:
-    branches: [ main ]
-    paths:
-      - "data/**/*.csv"
-      - "script/**"
-      - ".github/workflows/deploy.yml"
+  # Run from the Actions tab with optional overrides
+  workflow_dispatch:
+    inputs:
+      s3_key:
+        description: 'S3 object key (where to upload)'
+        required: false
+        default: 'combined_policy_summary.csv'
+      dataset_id:
+        description: 'QuickSight dataset id (leave blank to use secret)'
+        required: false
+        default: ''
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
 
     steps:
@@ -23,47 +26,40 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Install deps
+      - name: Install deps (if any)
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          # If pandas is NOT in your requirements.txt, uncomment this:
-          # pip install pandas
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # (optional) Rebuild your outputs if the pipeline generates the per-policy CSVs
-      - name: (Optional) Run pipeline
+      # Create a single file we can upload. 
+      # Prefers data/policy_usage_report_*.csv (merges them), 
+      # falls back to policy_summary.csv at repo root.
+      - name: Build combined CSV
+        shell: bash
         run: |
-          python script/run_all.py || true
+          set -euo pipefail
+          OUT="combined_policy_summary.csv"
 
-      # 👉 Add this step
-      - name: Compose combined CSV from per-policy files
-        run: |
-          python - <<'PY'
-          import pandas as pd, glob, os, sys
-          files = sorted(glob.glob("**/policy_usage_report_*.csv", recursive=True))
-          if not files:
-              print("❌ No per-policy files found. Repo layout is:")
-              os.system("ls -lR")
-              sys.exit(1)
-          dfs = []
-          for f in files:
-              try:
-                  df = pd.read_csv(f)
-                  dfs.append(df)
-                  print(f"✅ loaded {f} ({len(df)} rows)")
-              except Exception as e:
-                  print(f"⚠️  skipping {f}: {e}")
-          if not dfs:
-              print("❌ Found files but none could be read as CSV.")
-              sys.exit(1)
-          out = "combined_policy_summary.csv"
-          pd.concat(dfs, ignore_index=True).to_csv(out, index=False)
-          print(f"🎉 wrote {out} from {len(dfs)} files: {files}")
-          PY
+          if ls data/policy_usage_report_*.csv >/dev/null 2>&1; then
+            echo "Found per-policy CSVs in data/ — merging..."
+            FIRST=$(ls data/policy_usage_report_*.csv | head -n1)
+            {
+              head -n1 "$FIRST"
+              tail -n +2 -q data/policy_usage_report_*.csv
+            } > "$OUT"
+          elif [ -f policy_summary.csv ]; then
+            echo "Found policy_summary.csv at repo root — using it."
+            cp policy_summary.csv "$OUT"
+          else
+            echo "❌ No input CSVs found (data/policy_usage_report_*.csv or policy_summary.csv)."
+            echo "    Run your pipeline locally or in CI first, or commit the file."
+            exit 1
+          fi
+          echo "Produced:"
+          ls -lh "$OUT"
 
-      # Use your existing access-key secrets (fine for now)
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -71,19 +67,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ secrets.AWS_REGION }}
 
-      - name: Who am I?
-        run: aws sts get-caller-identity
-
       - name: Upload combined CSV to S3
+        shell: bash
         run: |
-          aws s3 cp combined_policy_summary.csv \
-            s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv \
-            --acl private
+          KEY="${{ github.event.inputs.s3_key }}"
+          [ -z "$KEY" ] && KEY="combined_policy_summary.csv"
+          echo "Uploading to s3://${{ secrets.S3_BUCKET }}/$KEY"
+          aws s3 cp combined_policy_summary.csv "s3://${{ secrets.S3_BUCKET }}/$KEY" --acl private
 
       - name: Refresh QuickSight dataset
+        shell: bash
         run: |
+          DS_ID="${{ github.event.inputs.dataset_id }}"
+          [ -z "$DS_ID" ] && DS_ID="${{ secrets.QS_DATASET_ID }}"
+
+          echo "Triggering QuickSight ingestion for dataset: $DS_ID"
           aws quicksight create-ingestion \
             --aws-account-id  ${{ secrets.AWS_ACCOUNT_ID }} \
-            --data-set-id     ${{ secrets.QS_DATASET_ID }} \
+            --data-set-id     "$DS_ID" \
             --ingestion-id    "ing-$(date +%s)" \
             --region          ${{ secrets.AWS_REGION }}
