@@ -1,31 +1,23 @@
 name: deploy
 
 on:
-  # Manual run
-  workflow_dispatch:
-
-  # Auto run when relevant files change on main
-  push:
+  workflow_dispatch:        # allow manual runs
+  push:                     # automatic on relevant changes to main
     branches: [ main ]
     paths:
-      # generated inputs and outputs
-      - "data/**"
-      - "refined_policies/**"
-      # your pipeline code / scripts
+      - "data/**/*.csv"
       - "script/**"
-      - "run_all.py"
-      - "fix_policy_summary.py"
-      - "fetch_iam_policies.py"
-      - "tests/**"
-      # allow editing this workflow to trigger a test run too
       - ".github/workflows/deploy.yml"
+  schedule:                 # nightly at 02:00 UTC
+    - cron: "0 2 * * *"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
+      id-token: write        # (future-proof if you move to OIDC)
       contents: read
-      id-token: write  # harmless if you later switch to OIDC
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,54 +28,55 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install deps (best effort)
+      - name: Install dependencies (best effort)
         run: |
-          set -e
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
+            pip install -r requirements.txt || true
           fi
 
-      # (Optional) run your full pipeline if it exists
-      - name: (Optional) Run pipeline
+      # Optional – if your repo has a pipeline that produces CSVs
+      - name: (Optional) run your pipeline
         run: |
-          set -e
           if [ -f script/run_all.py ]; then
-            python script/run_all.py
-          else
-            echo "No script/run_all.py found; skipping."
+            python script/run_all.py || true
           fi
 
-      # Build the final combined CSV the dashboard expects.
-      # - If your pipeline already produced combined_policy_summary.csv, we keep it.
-      # - Otherwise we merge any policy_usage_report_*.csv files into that name.
-      - name: Compose combined CSV from per-policy files
+      - name: Compose combined CSV
         run: |
           set -euo pipefail
-          FINAL=combined_policy_summary.csv
+          OUT="combined_policy_summary.csv"
 
-          if [ -f "$FINAL" ]; then
-            echo "::notice title=CSV::Found $FINAL already, keeping as-is."
-            exit 0
-          fi
+          if ls data/policy_usage_report_*.csv >/dev/null 2>&1; then
+            echo "Merging data/policy_usage_report_*.csv -> $OUT"
+            head -n 1 $(ls data/policy_usage_report_*.csv | head -n1) > "$OUT"
+            for f in data/policy_usage_report_*.csv; do
+              tail -n +2 "$f" >> "$OUT"
+            done
 
-          shopt -s nullglob
-          files=( policy_usage_report_*.csv data/policy_usage_report_*.csv )
+          elif [ -f data/policy_usage_report.csv ]; then
+            echo "Using data/policy_usage_report.csv -> $OUT"
+            cp data/policy_usage_report.csv "$OUT"
 
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No per-policy CSVs found. Listing repo for debugging:"
-            ls -la
-            echo "::error::Could not find $FINAL nor policy_usage_report_*.csv to combine."
+          elif ls policy_usage_report_*.csv >/dev/null 2>&1; then
+            echo "Merging policy_usage_report_*.csv in repo root -> $OUT"
+            head -n 1 $(ls policy_usage_report_*.csv | head -n1) > "$OUT"
+            for f in policy_usage_report_*.csv; do
+              tail -n +2 "$f" >> "$OUT"
+            done
+
+          elif [ -f policy_summary.csv ]; then
+            echo "Using policy_summary.csv -> $OUT"
+            cp policy_summary.csv "$OUT"
+
+          else
+            echo "::error::No input CSVs found to compose $OUT"
+            echo "Looked for: data/policy_usage_report_*.csv, data/policy_usage_report.csv, policy_usage_report_*.csv, policy_summary.csv"
             exit 1
           fi
 
-          echo "Merging ${#files[@]} files into $FINAL …"
-          # Keep header from the first file only
-          awk 'FNR==1 && NR!=1 {next} {print}' "${files[@]}" > "$FINAL"
-
-          echo "Result:"
-          wc -l "$FINAL"
-          head -n 5 "$FINAL" || true
+          echo "Composed file:"
+          ls -l "$OUT"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -94,19 +87,16 @@ jobs:
 
       - name: Upload combined CSV to S3
         run: |
-          set -e
           aws s3 cp combined_policy_summary.csv \
             "s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv" \
             --acl private
+          echo "Uploaded to s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv"
 
       - name: Refresh QuickSight dataset
         run: |
-          set -e
-          ING="ing-$(date +%s)"
-          echo "Triggering QuickSight create-ingestion: $ING"
           aws quicksight create-ingestion \
             --aws-account-id  "${{ secrets.AWS_ACCOUNT_ID }}" \
             --data-set-id     "${{ secrets.QS_DATASET_ID }}" \
-            --ingestion-id    "$ING" \
+            --ingestion-id    "ing-$(date +%s)" \
             --region          "${{ secrets.AWS_REGION }}"
-          echo "Ingestion submitted."
+          echo "Triggered QuickSight SPICE ingestion for dataset ${{ secrets.QS_DATASET_ID }}"
