@@ -1,24 +1,31 @@
 name: deploy
 
 on:
-  # Run from the Actions tab with optional overrides
+  # Manual run
   workflow_dispatch:
-    inputs:
-      s3_key:
-        description: 'S3 object key (where to upload)'
-        required: false
-        default: 'combined_policy_summary.csv'
-      dataset_id:
-        description: 'QuickSight dataset id (leave blank to use secret)'
-        required: false
-        default: ''
+
+  # Auto run when relevant files change on main
+  push:
+    branches: [ main ]
+    paths:
+      # generated inputs and outputs
+      - "data/**"
+      - "refined_policies/**"
+      # your pipeline code / scripts
+      - "script/**"
+      - "run_all.py"
+      - "fix_policy_summary.py"
+      - "fetch_iam_policies.py"
+      - "tests/**"
+      # allow editing this workflow to trigger a test run too
+      - ".github/workflows/deploy.yml"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-
+      id-token: write  # harmless if you later switch to OIDC
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,38 +34,56 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install deps (if any)
+      - name: Install deps (best effort)
         run: |
+          set -e
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
 
-      # Create a single file we can upload. 
-      # Prefers data/policy_usage_report_*.csv (merges them), 
-      # falls back to policy_summary.csv at repo root.
-      - name: Build combined CSV
-        shell: bash
+      # (Optional) run your full pipeline if it exists
+      - name: (Optional) Run pipeline
+        run: |
+          set -e
+          if [ -f script/run_all.py ]; then
+            python script/run_all.py
+          else
+            echo "No script/run_all.py found; skipping."
+          fi
+
+      # Build the final combined CSV the dashboard expects.
+      # - If your pipeline already produced combined_policy_summary.csv, we keep it.
+      # - Otherwise we merge any policy_usage_report_*.csv files into that name.
+      - name: Compose combined CSV from per-policy files
         run: |
           set -euo pipefail
-          OUT="combined_policy_summary.csv"
+          FINAL=combined_policy_summary.csv
 
-          if ls data/policy_usage_report_*.csv >/dev/null 2>&1; then
-            echo "Found per-policy CSVs in data/ — merging..."
-            FIRST=$(ls data/policy_usage_report_*.csv | head -n1)
-            {
-              head -n1 "$FIRST"
-              tail -n +2 -q data/policy_usage_report_*.csv
-            } > "$OUT"
-          elif [ -f policy_summary.csv ]; then
-            echo "Found policy_summary.csv at repo root — using it."
-            cp policy_summary.csv "$OUT"
-          else
-            echo "❌ No input CSVs found (data/policy_usage_report_*.csv or policy_summary.csv)."
-            echo "    Run your pipeline locally or in CI first, or commit the file."
+          if [ -f "$FINAL" ]; then
+            echo "::notice title=CSV::Found $FINAL already, keeping as-is."
+            exit 0
+          fi
+
+          shopt -s nullglob
+          files=( policy_usage_report_*.csv data/policy_usage_report_*.csv )
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No per-policy CSVs found. Listing repo for debugging:"
+            ls -la
+            echo "::error::Could not find $FINAL nor policy_usage_report_*.csv to combine."
             exit 1
           fi
-          echo "Produced:"
-          ls -lh "$OUT"
+
+          echo "Merging ${#files[@]} files into $FINAL …"
+          # Keep header from the first file only
+          awk 'FNR==1 && NR!=1 {next} {print}' "${files[@]}" > "$FINAL"
+
+          echo "Result:"
+          wc -l "$FINAL"
+          head -n 5 "$FINAL" || true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -68,22 +93,20 @@ jobs:
           aws-region:            ${{ secrets.AWS_REGION }}
 
       - name: Upload combined CSV to S3
-        shell: bash
         run: |
-          KEY="${{ github.event.inputs.s3_key }}"
-          [ -z "$KEY" ] && KEY="combined_policy_summary.csv"
-          echo "Uploading to s3://${{ secrets.S3_BUCKET }}/$KEY"
-          aws s3 cp combined_policy_summary.csv "s3://${{ secrets.S3_BUCKET }}/$KEY" --acl private
+          set -e
+          aws s3 cp combined_policy_summary.csv \
+            "s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv" \
+            --acl private
 
       - name: Refresh QuickSight dataset
-        shell: bash
         run: |
-          DS_ID="${{ github.event.inputs.dataset_id }}"
-          [ -z "$DS_ID" ] && DS_ID="${{ secrets.QS_DATASET_ID }}"
-
-          echo "Triggering QuickSight ingestion for dataset: $DS_ID"
+          set -e
+          ING="ing-$(date +%s)"
+          echo "Triggering QuickSight create-ingestion: $ING"
           aws quicksight create-ingestion \
-            --aws-account-id  ${{ secrets.AWS_ACCOUNT_ID }} \
-            --data-set-id     "$DS_ID" \
-            --ingestion-id    "ing-$(date +%s)" \
-            --region          ${{ secrets.AWS_REGION }}
+            --aws-account-id  "${{ secrets.AWS_ACCOUNT_ID }}" \
+            --data-set-id     "${{ secrets.QS_DATASET_ID }}" \
+            --ingestion-id    "$ING" \
+            --region          "${{ secrets.AWS_REGION }}"
+          echo "Ingestion submitted."
