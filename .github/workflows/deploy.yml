@@ -1,63 +1,58 @@
-name: Deploy
+name: deploy
 
 on:
+  workflow_dispatch:              # allow manual runs
   push:
     branches: [ main ]
-
-permissions:
-  id-token: write   # for GitHub OIDC to AWS
-  contents: read
+    paths:
+      - "combined_policy_summary.csv"
+      - ".github/workflows/deploy.yml"
+      - "script/**"
+      - "requirements.txt"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: pip
 
-      - name: Install & run pipeline
+      - name: Install deps & (re)build outputs
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          python script/run_all.py
+          # Recreate outputs (adjust if your entrypoint is different)
+          python script/run_all.py || true
 
-      # ---- AWS Auth (OIDC preferred) ----
+      # --- Authenticate to AWS with your ACCESS KEY secrets ---
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
 
-      # ---- Publish artifacts to S3 ----
-      - name: Sync outputs to S3
+      # --- Upload the combined report to S3 ---
+      - name: Upload combined CSV to S3
         run: |
-          # raw data & summaries
-          aws s3 sync data s3://${{ secrets.S3_BUCKET }}/ --delete
-          # refined policies
-          aws s3 sync refined_policies s3://${{ secrets.S3_BUCKET }}/refined_policies/ --delete
-          # (optional) test outputs you use for QS
-          aws s3 sync test_refined_mit s3://${{ secrets.S3_BUCKET }}/mit/ --delete
-          aws s3 sync test_refined_custom s3://${{ secrets.S3_BUCKET }}/custom/ --delete
-          aws s3 sync test_refined_new s3://${{ secrets.S3_BUCKET }}/new/ --delete
-          # (optional) combined summary for QS
-          if [ -f data/combined_policy_summary.csv ]; then
-            aws s3 cp data/combined_policy_summary.csv s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv
-          fi
+          aws s3 cp combined_policy_summary.csv \
+            s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv \
+            --acl private
 
-      # ---- QuickSight dataset refresh ----
+      # --- Trigger QuickSight dataset refresh (ingestion) ---
       - name: Refresh QuickSight dataset
-        env:
-          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-          DATASET_ID: ${{ secrets.QS_DATASET_ID }}
-          REGION:     ${{ secrets.AWS_REGION }}
         run: |
-          ING=run-${GITHUB_SHA::8}
           aws quicksight create-ingestion \
-            --aws-account-id "$ACCOUNT_ID" \
-            --data-set-id "$DATASET_ID" \
-            --ingestion-id "$ING" \
-            --region "$REGION"
-          echo "Triggered QuickSight ingestion: $ING"
+            --aws-account-id  ${{ secrets.AWS_ACCOUNT_ID }} \
+            --data-set-id     ${{ secrets.QS_DATASET_ID }} \
+            --ingestion-id    "ing-$(date +%s)" \
+            --region          ${{ secrets.AWS_REGION }}
