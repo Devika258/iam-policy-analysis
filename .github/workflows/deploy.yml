@@ -5,13 +5,14 @@ on:
   push:
     branches: [ main ]
     paths:
+      - "script/**"
+      - "data/**"
       - ".github/workflows/deploy.yml"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
 
     steps:
@@ -21,7 +22,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+
+      - name: Install deps & rebuild outputs
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python script/run_all.py || true
+          echo "=== Repo tree (top) ==="
+          ls -la
+          echo "=== data/ ==="
+          ls -la data || true
+          echo "=== refined_policies/ ==="
+          ls -la refined_policies || true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -30,14 +43,41 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ secrets.AWS_REGION }}
 
-      # Optional: sanity check that your file is in S3
-      - name: Check S3 file exists
-        run: aws s3 ls s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv
+      - name: Who am I?
+        run: aws sts get-caller-identity
+
+      # Upload combined CSV (adjust path if your file lives elsewhere)
+      - name: Upload combined CSV to S3
+        run: |
+          # Use whatever you actually produce; change if needed.
+          # If your pipeline produces `data/policy_summary.csv`, switch the source path below.
+          SRC="data/policy_summary.csv"
+          if [ ! -f "$SRC" ]; then
+            echo "File $SRC not found, trying data/policy_usage_report.csv"
+            SRC="data/policy_usage_report.csv"
+          fi
+          if [ ! -f "$SRC" ]; then
+            echo "File $SRC not found, trying combined_policy_summary.csv at repo root"
+            SRC="combined_policy_summary.csv"
+          fi
+          if [ ! -f "$SRC" ]; then
+            echo "No known CSV found. Listing data/:"
+            ls -la data || true
+            echo "::error::No combined CSV found to upload."
+            exit 1
+          fi
+          echo "Uploading $SRC -> s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv"
+          aws s3 cp "$SRC" "s3://${{ secrets.S3_BUCKET }}/combined_policy_summary.csv" --acl private
 
       - name: Refresh QuickSight dataset
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          QS_DATASET_ID:  ${{ secrets.QS_DATASET_ID }}
+          AWS_REGION:     ${{ secrets.AWS_REGION }}
         run: |
+          echo "Creating QuickSight ingestion for dataset $QS_DATASET_ID in $AWS_ACCOUNT_ID ($AWS_REGION)"
           aws quicksight create-ingestion \
-            --aws-account-id  ${{ secrets.AWS_ACCOUNT_ID }} \
-            --data-set-id     ${{ secrets.QS_DATASET_ID }} \
+            --aws-account-id  "$AWS_ACCOUNT_ID" \
+            --data-set-id     "$QS_DATASET_ID" \
             --ingestion-id    "ing-$(date +%s)" \
-            --region          ${{ secrets.AWS_REGION }}
+            --region          "$AWS_REGION"
